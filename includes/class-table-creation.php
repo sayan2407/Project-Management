@@ -19,8 +19,36 @@ class Task_Manager
         add_filter( 'manage_project_posts_columns', [ $this, 'add_custom_columns' ] );
         add_action( 'manage_project_posts_custom_column', [ $this, 'populate_project_custom_columns' ], 10, 2 );
 
+        add_filter( 'manage_task_posts_columns', [ $this, 'add_custom_columns_task' ] );
+        add_action( 'manage_task_posts_custom_column', [ $this, 'populate_task_custom_columns' ], 10, 2 );
 
 
+
+    }
+
+    public function add_custom_columns_task($col) {
+        // if ( $post->post_type === "task" ) {
+            $col['task_start_date'] = __("Task Start Date");
+            $col['project_name']    =   __("Project Name");
+            $col['status'] = __("Status");
+            $col['assign_to']   = __("Assign To");
+        // }
+        return $col;
+    }
+
+    public function populate_task_custom_columns( $col, $post_id ) {
+        $project_task_details = get_post_meta( $post_id, 'project_task_details', true );
+
+        
+        switch($col) {
+            case 'task_start_date' :
+                echo $project_task_details['task_start_date'];
+                break;
+            case 'project_name' :
+                echo get_the_title($project_task_details['project_task']);
+                break;
+
+        }
     }
 
     public function populate_project_custom_columns($col, $post_id) {
@@ -41,13 +69,15 @@ class Task_Manager
         // $col
         // wp_die('test');
         global $post;
-        error_log('col '. print_r($col, 1));
-        error_log('post '. print_r($post, 1));
+       
         if ( $post->post_type === "project" ) {
 
             $col['project_start_date'] =  __("Project Start Date");
             $col['client_name']  = __("Client Name");
         }
+      
+
+        
         return $col;
     }
 
@@ -65,8 +95,68 @@ class Task_Manager
         }
 
         if ( isset( $_POST['project_start_date'] ) ) {
+
             update_post_meta( $post_id, 'project_start_date', sanitize_text_field( $_POST['project_start_date'] ) );
         }
+
+        // var_dump($_POST);
+        error_log(print_r($_POST, 1));
+        $post_type = get_post_type($post_id);
+
+        if ( $post_type == "task" ) {
+            $project_task_details = get_post_meta( $post_id, 'project_task_details', true );
+            error_log('project_task_details1 ' . print_r($project_task_details, 1));
+
+
+            if (empty($project_task_details)) {
+                error_log('inserting');
+                $project_task_details = [];
+            }
+
+            error_log('project_task_details ' . print_r($project_task_details, 1));
+
+            if ( isset( $_POST['project_task'] ) ) {
+                $project_task_details["project_task"] = $_POST['project_task'];
+            }
+
+            if ( isset( $_POST['task_start_date'] ) ) {
+                $project_task_details["task_start_date"] = $_POST['task_start_date'];
+
+                // update_post_meta( $post_id, 'task_start_date', $_POST['task_start_date'] );
+            }
+
+            if ( isset( $_POST['task_end_date'] ) ) {
+                $project_task_details["task_end_date"] = $_POST['task_end_date'];
+
+                // update_post_meta( $post_id, 'task_end_date', $_POST['task_end_date'] );
+            }
+
+            if ( isset( $_POST['task_details'] ) ) {
+                $project_task_details["task_details"] = $_POST['task_details'];
+
+            }
+            error_log('project_task_details_after ' . print_r($project_task_details, 1));
+
+
+            update_post_meta( $post_id, 'project_task_details', $project_task_details );
+        }
+
+        // if ( isset( $_POST['project_task'] ) ) {
+        //     error_log('project_task_update ' . $_POST['project_task']);
+        //     update_post_meta( $post_id, 'project_task', $_POST['project_task'] );
+        // }
+
+        // if ( isset( $_POST['task_start_date'] ) ) {
+        //     update_post_meta( $post_id, 'task_start_date', $_POST['task_start_date'] );
+        // }
+
+        // if ( isset( $_POST['task_end_date'] ) ) {
+        //     update_post_meta( $post_id, 'task_end_date', $_POST['task_end_date'] );
+        // }
+
+        // if ( isset( $_POST['task_details'] ) ) {
+        //     update_post_meta( $post_id, 'task_details', $_POST['task_details'] );
+        // }
     }
 
     public function register_custom_post_types()
@@ -100,13 +190,96 @@ class Task_Manager
                 'public' => true,
                 'has_archive' => true,
                 'show_in_menu' => 'edit.php?post_type=project', // Show as submenu of 'Project' menu
+                'register_meta_box_cb'  =>  [ $this, 'register_custom_meta_box_task' ]
             )
         );
 
     }
 
+    public function register_custom_meta_box_task() {
+        add_meta_box( 'task_meta_box0', __( "Task Details" ), [ $this, 'display_task_details_fields' ], 'task', 'normal', 'default' );
+    }
+
     public function register_custom_meta_box_product() {
         add_meta_box('project_meta_box', __('Project Details'), array($this, 'display_project_meta_boxes'), 'project', 'normal', 'default');
+    }
+
+    public function display_task_details_fields($post) {
+        $task_start_date = get_post_meta( $post->ID, 'task_start_date', true );
+        $task_end_date = get_post_meta( $post->ID, 'task_end_date', true );
+        $task_content = get_post_meta( $post->ID, 'task_details', true );
+        $project_task = get_post_meta( $post->ID, 'project_task', true );
+
+
+        // error_log('project_task ' . $project_task);
+
+        $project_task_details = get_post_meta( $post->ID, 'project_task_details', true );
+
+        if ( !isset($project_task_details['task_start_date']) ) {
+            $project_task_details['task_start_date'] = '';
+        }
+
+        if ( !isset($project_task_details['task_end_date']) ) {
+            $project_task_details['task_end_date'] = '';
+        }
+
+        if ( !isset($project_task_details['task_details']) ) {
+            $project_task_details['task_details'] = '';
+        }
+
+        if ( !isset($project_task_details['project_task']) ) {
+            $project_task_details['project_task'] = '0';
+        }
+
+
+        $args = [
+            'post_type' => 'project',
+            'posts_per_page'    =>  -1,
+            'post_status'    => 'publish'
+        ];
+
+        $all_projects = get_posts( $args );
+        // error_log('all_projects '. print_r($all_projects, 1));
+        ?>
+        <div>
+            <div>
+            <label for="task_start_date"><strong>Select Start Date</strong></label>
+            <input name="task_start_date" id="task_start_date" type="date" value="<?php echo $project_task_details['task_start_date'] ?>">
+            </div>
+            <div>
+            <label for="task_end_date"><strong>Select End Date</strong></label>
+            <input name="task_end_date" id="task_end_date" type="date" value="<?php echo $project_task_details['task_end_date'] ?>">
+            </div>
+            
+        </div> <br><br>
+        <div>
+            <label for="task_details">Enter Task Details</label>
+            <?php
+            wp_editor( $project_task_details['task_details'], 'task_details', [
+                'textarea_name' =>  'task_details',
+                'textarea_rows' =>  10
+            ] )
+            ?>
+        </div>
+
+        <div>
+            <label><strong>Select a Project</strong></label>
+            <select name="project_task" id="project_task" class="project_task">
+                <option value="0">select a Project</option>
+                <?php 
+
+                foreach( $all_projects as $project ) {
+                    ?>
+                   <option <?php echo ($project_task_details['project_task'] == $project->ID) ?  "selected" :  ""; ?> value="<?php echo $project->ID ?>"><?php echo $project->post_title ?></option>
+
+                    <?php
+                }
+                
+                ?>
+            </select>
+        </div>
+
+        <?php
     }
 
     public function display_project_meta_boxes($post) {
